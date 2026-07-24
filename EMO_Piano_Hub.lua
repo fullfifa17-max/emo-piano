@@ -1,4 +1,4 @@
--- EMO Piano Hub v1.0
+-- EMO Piano Hub v5.0
 -- dx9ware piano autoplayer — MIDI2LUA compatible
 -- Paste raw MIDI2LUA code or URL directly into the hub
 -- Play/Pause/Resume, Seek, Live BPM
@@ -26,7 +26,7 @@ local VK={
     [";"]=0xBA,["'"]=0xDE,[","]=0xBC,["."]=0xBE,["/"]=0xBF,
 }
 local VK_CTRL=0x11;local VK_SPACE=0x20;local NH=0.05
-local INDEX_URL="https://raw.githubusercontent.com/fullfifa17-max/emo-piano/main/songs/index.txt"
+local INDEX_URL="https://raw.githubusercontent.com/juygtfdw2/emo-piano/main/songs/index.txt"
 
 -- State persists across frames + sessions (while dx9 is open)
 if not _G.EP then
@@ -106,8 +106,8 @@ end
 if #songNames==0 then songNames={"No songs loaded"} end
 
 sL:Dropdown("Song","song",songNames,songNames[1])
-sL:Textbox("Paste Code/URL","input","")
-sL:Textbox("Song Name","sname","Custom Song")
+sL:Label("Paste URL into _G.EP_URL")
+sL:Label("then toggle Load Pasted")
 
 sR:Toggle("Play / Pause","go",false)
 sR:Toggle("Stop","stop",false)
@@ -123,8 +123,8 @@ local function V(k) return W:Val(k) end
 -- LOAD PASTED CODE/URL
 -- ============================================================
 if V("load") then
-    local input=V("input") or ""
-    local sname=V("sname") or "Custom Song"
+    local input=_G.EP_URL or ""
+    local sname=_G.EP_SNAME or "Custom Song"
     if #input>10 then
         local raw=input
         local isURL=input:match("^https?://")
