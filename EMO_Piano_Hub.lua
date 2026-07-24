@@ -1,8 +1,5 @@
--- EMO Piano Hub v5.0
+-- EMO Piano Hub v1
 -- dx9ware piano autoplayer — MIDI2LUA compatible
--- Paste raw MIDI2LUA code or URL directly into the hub
--- Play/Pause/Resume, Seek, Live BPM
-
 if not _G.EMO_UI_LIB then _G.EMO_UI_LIB=loadstring(dx9.Get("https://raw.githubusercontent.com/fullfifa17-max/emo_UI/main/emo_ui.lua"))() end
 local UI=_G.EMO_UI_LIB
 local _sz=dx9.size()
@@ -28,17 +25,15 @@ local VK={
 local VK_CTRL=0x11;local VK_SPACE=0x20;local NH=0.05
 local INDEX_URL="https://raw.githubusercontent.com/fullfifa17-max/emo-piano/main/songs/index.txt"
 
--- State persists across frames + sessions (while dx9 is open)
 if not _G.EP then
     _G.EP={
         state="idle",events=nil,idx=0,total=0,nextT=0,
         name="",cache={},songs={},customSongs={},loaded=false,
-        held={},seekPct=-1,lastInput="",rebuildUI=true,
+        held={},seekPct=-1,
     }
 end
 local P=_G.EP
 
--- Load song index from GitHub
 if not P.loaded then
     pcall(function()
         local raw=dx9.Get(INDEX_URL)
@@ -55,9 +50,6 @@ if not P.loaded then
     P.loaded=true
 end
 
--- ============================================================
--- PARSER
--- ============================================================
 local function parseSong(raw)
     local events={};local bpm=120
     local bpmMatch=raw:match("bpm%s*=%s*(%d+)")
@@ -84,34 +76,29 @@ local function parseSong(raw)
     return events,bpm,cumT
 end
 
--- ============================================================
--- UI — rebuilt when custom songs are added
--- ============================================================
+-- UI
 local T=UI.Theme({accent={180,100,255},title="EMO | Piano Hub",footerTxt="EMO | discord.gg/coi"})
-local W=UI.Window({Index="PIANO_V6",Theme=T,Width=460,Height=400,ToggleKey="[INSERT]"})
+local W=UI.Window({Index="PIANO_V7",Theme=T,Width=460,Height=400,ToggleKey="[INSERT]"})
 local c1=W:Cat("Player")
 local t1=c1:Tab("Songs")
-local sL=t1:Card("Library","left")
-local sR=t1:Card("Controls","right")
+local sL=t1:Card("Song Select","left")
+local sR=t1:Card("Player","right")
 
--- Build combined song list: library + custom
 local allSongs={}
 for i=1,#P.songs do allSongs[#allSongs+1]=P.songs[i] end
 for i=1,#P.customSongs do allSongs[#allSongs+1]=P.customSongs[i] end
 local songNames={}
-for i=1,#allSongs do
-    local tag=allSongs[i].src=="custom" and "[+] " or ""
-    songNames[i]=tag..allSongs[i].name.." - "..allSongs[i].artist
-end
+for i=1,#allSongs do songNames[i]=allSongs[i].name.." - "..allSongs[i].artist end
 if #songNames==0 then songNames={"No songs loaded"} end
 
-sL:Dropdown("Song","song",songNames,songNames[1])
-sL:Label("Paste URL into _G.EP_URL")
-sL:Label("then toggle Load Pasted")
+sL:Dropdown("Song","song",songNames,1)
+sL:Sep()
+sL:Label("Custom: _G.EP_URL = url")
+sL:Toggle("Load Custom","load",false)
 
 sR:Toggle("Play / Pause","go",false)
 sR:Toggle("Stop","stop",false)
-sR:Toggle("Load Pasted","load",false)
+sR:Sep()
 sR:Slider("BPM %","bpm",100,25,300,0)
 sR:Slider("Seek %","seek",0,0,100,0)
 
@@ -119,16 +106,13 @@ local c2=W:Cat("Config")
 c2:Tab("Settings"):Card("Settings","left"):Keybind("Menu Key","mk","[INSERT]")
 local function V(k) return W:Val(k) end
 
--- ============================================================
--- LOAD PASTED CODE/URL
--- ============================================================
+-- Load custom song from _G.EP_URL
 if V("load") then
     local input=_G.EP_URL or ""
     local sname=_G.EP_SNAME or "Custom Song"
     if #input>10 then
         local raw=input
-        local isURL=input:match("^https?://")
-        if isURL then
+        if input:match("^https?://") then
             pcall(function() raw=dx9.Get(input) end)
         end
         if raw and #raw>10 then
@@ -137,15 +121,11 @@ if V("load") then
                 local key="custom_"..#P.customSongs+1
                 P.cache[key]={events=events,bpm=bpm,totalTime=totalTime}
                 P.customSongs[#P.customSongs+1]={name=sname,artist="Custom",bpm=bpm,url=key,src="custom"}
-                -- Song is now in cache and dropdown (next frame rebuild)
             end
         end
     end
 end
 
--- ============================================================
--- LOAD SONG DATA
--- ============================================================
 local function getSongData(songInfo)
     if P.cache[songInfo.url] then return P.cache[songInfo.url] end
     if songInfo.src=="custom" then return nil end
@@ -166,16 +146,19 @@ local function releaseAll()
 end
 local function fullStop() P.state="idle";P.events=nil;P.idx=0;P.total=0;P.name="";releaseAll() end
 
--- ============================================================
--- CONTROLS
--- ============================================================
 if V("stop") then fullStop() end
 
 local goOn=V("go")
 
+-- PLAY — dropdown returns index number
 if goOn and P.state=="idle" then
-    local sel=V("song");local songInfo=nil
-    for i=1,#allSongs do if songNames[i]==sel then songInfo=allSongs[i];break end end
+    local sel=V("song")
+    local songInfo=nil
+    if type(sel)=="number" then
+        songInfo=allSongs[sel]
+    else
+        for i=1,#allSongs do if songNames[i]==sel then songInfo=allSongs[i];break end end
+    end
     if songInfo then
         local data=getSongData(songInfo)
         if data and #data.events>0 then
@@ -206,9 +189,7 @@ if P.events and P.total>0 then
     P.seekPct=sv
 end
 
--- ============================================================
 -- PLAYBACK
--- ============================================================
 if P.state=="playing" and P.events then
     local now=clock();local scale=100/(V("bpm") or 100);local batch=0
     local rm={}
@@ -233,9 +214,7 @@ if P.state=="playing" and P.events then
     end
 end
 
--- ============================================================
 -- HUD
--- ============================================================
 local hx=SX/2-150;local hy=SY-55;local hW=300;local hH=42
 DFB({hx,hy},{hx+hW,hy+hH},{20,10,30});DB({hx,hy},{hx+hW,hy+hH},{180,100,255})
 if P.state~="idle" and P.total>0 then
@@ -247,8 +226,7 @@ if P.state~="idle" and P.total>0 then
     DFB({bx,by},{bx+filled,by+6},{180,100,255});DB({bx,by},{bx+bW,by+6},{100,50,150})
     DFB({bx+filled-2,by-1},{bx+filled+2,by+7},{255,255,255})
 else
-    DS({hx+5,hy+5},{180,100,255},"EMO Piano Hub v5")
-    DS({hx+5,hy+19},{150,150,150},#allSongs.." songs | Paste code & Load, or select & Play")
-    DS({hx+5,hy+31},{100,100,100},"Custom: "..#P.customSongs.." loaded this session")
+    DS({hx+5,hy+5},{180,100,255},"EMO Piano Hub")
+    DS({hx+5,hy+19},{150,150,150},#allSongs.." songs loaded")
 end
 W:Draw()
