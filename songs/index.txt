@@ -1,0 +1,4 @@
+# EMO Piano Hub Song Index
+# Format: SongName|Artist|BPM|RawURL
+# Add new songs by adding a line here and uploading the .lua file
+I Am Not Who I Was|Chance Pena|130|https://raw.githubusercontent.com/fullfifa17-max/emo_UI/main/songs/i_am_not_who_i_was.lua
