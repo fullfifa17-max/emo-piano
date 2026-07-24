@@ -26,7 +26,7 @@ local VK={
     [";"]=0xBA,["'"]=0xDE,[","]=0xBC,["."]=0xBE,["/"]=0xBF,
 }
 local VK_CTRL=0x11;local VK_SPACE=0x20;local NH=0.05
-local INDEX_URL="https://raw.githubusercontent.com/juygtfdw2/emo-piano/main/songs/index.txt"
+local INDEX_URL="https://raw.githubusercontent.com/fullfifa17-max/emo-piano/main/songs/index.txt"
 
 -- State persists across frames + sessions (while dx9 is open)
 if not _G.EP then
